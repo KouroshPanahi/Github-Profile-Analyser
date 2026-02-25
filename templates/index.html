@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Profile Analyser</title>
+    <style>
+        :root {
+            color-scheme: light;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background: #f8fafc;
+            color: #0f172a;
+        }
+
+        h1 {
+            margin-bottom: 14px;
+        }
+
+        form {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            width: 280px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+        }
+
+        button {
+            padding: 10px 16px;
+            border: 1px solid #0f172a;
+            border-radius: 8px;
+            background: #0f172a;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .error {
+            color: #b00020;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .card {
+            border: 1px solid #cbd5e1;
+            padding: 16px;
+            border-radius: 10px;
+            max-width: 860px;
+            background: #fff;
+            box-shadow: 0 3px 10px rgba(2, 6, 23, 0.05);
+        }
+
+        .header {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .avatar {
+            width: 84px;
+            height: 84px;
+            border-radius: 50%;
+            border: 1px solid #cbd5e1;
+        }
+
+        .rows {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 8px 16px;
+            margin-top: 14px;
+        }
+
+        .row {
+            margin: 2px 0;
+            line-height: 1.4;
+        }
+
+        .label {
+            font-weight: bold;
+        }
+
+        .mono {
+            font-family: Menlo, Consolas, monospace;
+        }
+
+        details {
+            margin-top: 16px;
+        }
+
+        pre {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 12px;
+            border-radius: 8px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 12px;
+        }
+
+        a {
+            color: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>GitHub Profile Analyser</h1>
+    <form method="post">
+        <input type="text" name="username" placeholder="Enter GitHub username" value="{{ username }}">
+        <button type="submit">Search</button>
+    </form>
+
+    {% if error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+
+    {% if data %}
+        <div class="card">
+            <div class="header">
+                <img class="avatar" src="{{ data.get('avatar_url') }}" alt="{{ data.get('login') }} avatar">
+                <div>
+                    <div class="row"><span class="label">Name:</span> {{ data.get('name') or 'N/A' }}</div>
+                    <div class="row"><span class="label">Username:</span> <span class="mono">{{ data.get('login') }}</span></div>
+                    <div class="row"><span class="label">Profile URL:</span> <a href="{{ data.get('html_url') }}" target="_blank" rel="noopener noreferrer">{{ data.get('html_url') }}</a></div>
+                </div>
+            </div>
+
+            <div class="rows">
+                <div class="row"><span class="label">Bio:</span> {{ data.get('bio') or 'N/A' }}</div>
+                <div class="row"><span class="label">Location:</span> {{ data.get('location') or 'N/A' }}</div>
+                <div class="row"><span class="label">Company:</span> {{ data.get('company') or 'N/A' }}</div>
+                <div class="row"><span class="label">Blog/Website:</span> {{ data.get('blog') or 'N/A' }}</div>
+                <div class="row"><span class="label">Twitter Username:</span> {{ data.get('twitter_username') or 'N/A' }}</div>
+                <div class="row"><span class="label">Public Repos:</span> {{ data.get('public_repos') }}</div>
+                <div class="row"><span class="label">Public Gists:</span> {{ data.get('public_gists') }}</div>
+                <div class="row"><span class="label">Followers:</span> {{ data.get('followers') }}</div>
+                <div class="row"><span class="label">Following:</span> {{ data.get('following') }}</div>
+                <div class="row"><span class="label">Account Type:</span> {{ data.get('type') }}</div>
+                <div class="row"><span class="label">GitHub ID:</span> <span class="mono">{{ data.get('id') }}</span></div>
+                <div class="row"><span class="label">Node ID:</span> <span class="mono">{{ data.get('node_id') }}</span></div>
+                <div class="row"><span class="label">Created At:</span> {{ data.get('created_at') }}</div>
+                <div class="row"><span class="label">Last Updated:</span> {{ data.get('updated_at') }}</div>
+                <div class="row"><span class="label">Site Admin:</span> {{ data.get('site_admin') }}</div>
+                <div class="row"><span class="label">Hireable:</span> {{ data.get('hireable') }}</div>
+            </div>
+
+            <details>
+                <summary>Full GitHub API Response (JSON)</summary>
+                <pre>{{ data | tojson(indent=2) }}</pre>
+            </details>
+        </div>
+    {% endif %}
+</body>
+</html>
