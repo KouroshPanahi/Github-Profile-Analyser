@@ -69,7 +69,87 @@
                     <pre>{{ data | tojson(indent=2) }}</pre>
                 </details>
             </section>
+
+            <section class="card repo-section">
+                <div class="repo-head">
+                    <h2>Top {{ top_repos_limit }} Repositories</h2>
+                    <p>Showing top {{ top_repos_limit }} first, sorted by stars then forks.</p>
+                </div>
+
+                {% if repos_error %}
+                    <div class="warning">{{ repos_error }}</div>
+                {% elif repos %}
+                    <div class="repo-grid">
+                        {% for repo in repos %}
+                            <article class="repo-card {% if loop.index > top_repos_limit %}repo-hidden{% endif %}">
+                                <div class="repo-title-row">
+                                    <h3>{{ repo.get('name') }}</h3>
+                                    {% if repo.get('private') %}
+                                        <span class="badge">Private</span>
+                                    {% endif %}
+                                </div>
+                                <p class="repo-desc">{{ repo.get('description') or 'No description provided.' }}</p>
+                                <div class="repo-meta">
+                                    <span>Language: {{ repo.get('language') or 'N/A' }}</span>
+                                    <span>Stars: {{ repo.get('stargazers_count', 0) }}</span>
+                                    <span>Forks: {{ repo.get('forks_count', 0) }}</span>
+                                    <span>Open Issues: {{ repo.get('open_issues_count', 0) }}</span>
+                                    <span>Updated: {{ repo.get('updated_at') or 'N/A' }}</span>
+                                </div>
+                                <a href="{{ repo.get('html_url') }}" target="_blank" rel="noopener noreferrer">Open Repository</a>
+                            </article>
+                        {% endfor %}
+                    </div>
+                    {% if repos|length > top_repos_limit %}
+                        <button type="button" class="more-btn" id="toggleReposBtn">More</button>
+                    {% endif %}
+                {% else %}
+                    <p class="muted">No public repositories found for this user.</p>
+                {% endif %}
+            </section>
+
+            <section class="card orgs-section">
+                <div class="repo-head">
+                    <h2>Organizations</h2>
+                    <p>GitHub organizations this user belongs to.</p>
+                </div>
+
+                {% if orgs_error %}
+                    <div class="warning">{{ orgs_error }}</div>
+                {% elif orgs %}
+                    <div class="org-grid">
+                        {% for org in orgs %}
+                            <article class="org-card">
+                                <img src="{{ org.get('avatar_url') }}" alt="{{ org.get('login') }} avatar">
+                                <div>
+                                    <h3>{{ org.get('login') }}</h3>
+                                    <a href="https://github.com/{{ org.get('login') }}" target="_blank" rel="noopener noreferrer">View Organization</a>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="muted">No organizations found for this user.</p>
+                {% endif %}
+            </section>
         {% endif %}
     </main>
+    <script>
+        (() => {
+            const toggleBtn = document.getElementById("toggleReposBtn");
+            if (!toggleBtn) return;
+
+            const hiddenRepoCards = Array.from(document.querySelectorAll(".repo-hidden"));
+            let expanded = false;
+
+            toggleBtn.addEventListener("click", () => {
+                expanded = !expanded;
+                hiddenRepoCards.forEach((card) => {
+                    card.classList.toggle("show-repo", expanded);
+                });
+                toggleBtn.textContent = expanded ? "Less" : "More";
+            });
+        })();
+    </script>
 </body>
 </html>
