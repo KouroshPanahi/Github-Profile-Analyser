@@ -3,7 +3,9 @@ This project is a website that takes the user you want on the GitHub site and th
 This project uses an APIs to find the desired user, the link to which is below:
 
 https://api.github.com/users/{username}
+
 https://api.github.com/users/{username}/orgs
+
 https://api.github.com/users/{username}/repos
 
 Programming languages ​​and libraries used for this project:
