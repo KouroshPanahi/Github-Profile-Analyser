@@ -1,10 +1,29 @@
 from io import BytesIO
+import os
 from flask import Flask, render_template, request, send_file
 import requests
 
 app = Flask(__name__)
 TOP_REPOS_LIMIT = 5
 PER_PAGE = 100
+GITHUB_API_BASE = "https://api.github.com"
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
+
+
+def github_headers():
+    headers = {"Accept": "application/vnd.github+json"}
+    if GITHUB_TOKEN:
+        headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    return headers
+
+
+def github_get(path, params=None):
+    return requests.get(
+        f"{GITHUB_API_BASE}{path}",
+        timeout=10,
+        params=params,
+        headers=github_headers(),
+    )
 
 
 def fetch_all_repositories(username):
@@ -12,11 +31,9 @@ def fetch_all_repositories(username):
     page = 1
 
     while True:
-        response = requests.get(
-            f"https://api.github.com/users/{username}/repos",
-            timeout=10,
+        response = github_get(
+            f"/users/{username}/repos",
             params={"per_page": PER_PAGE, "page": page, "sort": "updated"},
-            headers={"Accept": "application/vnd.github+json"},
         )
         response.raise_for_status()
 
@@ -34,11 +51,7 @@ def fetch_all_repositories(username):
 
 
 def fetch_user_orgs(username):
-    response = requests.get(
-        f"https://api.github.com/users/{username}/orgs",
-        timeout=10,
-        headers={"Accept": "application/vnd.github+json"},
-    )
+    response = github_get(f"/users/{username}/orgs")
     response.raise_for_status()
     return response.json()
 
@@ -47,7 +60,12 @@ def map_http_error(response):
     status = response.status_code if response is not None else "unknown"
     if status == 404:
         return "User not found."
+    if status == 401:
+        return "Invalid GitHub token. Please check GITHUB_TOKEN."
     if status == 403:
+        remaining = response.headers.get("X-RateLimit-Remaining", "")
+        if remaining == "0":
+            return "GitHub API rate limit exceeded. Add GITHUB_TOKEN to increase limits."
         return "Access is restricted or rate limit exceeded."
     return f"HTTP error: {status}"
 
@@ -60,11 +78,7 @@ def fetch_profile_with_orgs(username):
     response = None
 
     try:
-        response = requests.get(
-            f"https://api.github.com/users/{username}",
-            timeout=10,
-            headers={"Accept": "application/vnd.github+json"},
-        )
+        response = github_get(f"/users/{username}")
         response.raise_for_status()
         data = response.json()
 
@@ -94,11 +108,7 @@ def fetch_user_bundle(username):
     response = None
 
     try:
-        response = requests.get(
-            f"https://api.github.com/users/{username}",
-            timeout=10,
-            headers={"Accept": "application/vnd.github+json"},
-        )
+        response = github_get(f"/users/{username}")
         response.raise_for_status()
         data = response.json()
 

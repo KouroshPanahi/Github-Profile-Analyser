@@ -35,3 +35,27 @@ Now, what information can we get by giving someone their GitHub username?
 - And much more information...
 
 Another feature of this website is comparing two people, which is very useful.
+
+## GitHub API Rate Limit (Token Support)
+
+To avoid hitting GitHub API limits too quickly, this project now supports authenticated
+requests using a Personal Access Token.
+
+Without token (unauthenticated): around `60` requests/hour per IP  
+With token (authenticated): up to around `5000` requests/hour per user/token
+
+Set one of these environment variables before running the app:
+- `GITHUB_TOKEN` (preferred)
+- `GH_TOKEN` (fallback)
+
+### macOS / Linux (zsh/bash)
+```bash
+export GITHUB_TOKEN="your_github_personal_access_token"
+python3 main.py
+```
+
+### Windows (PowerShell)
+```powershell
+$env:GITHUB_TOKEN="your_github_personal_access_token"
+python main.py
+```
