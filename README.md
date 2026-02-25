@@ -3,7 +3,9 @@ This project is a website that takes the user you want on the GitHub site and th
 This project uses an APIs to find the desired user, the link to which is below:
 
 https://api.github.com/users/{username}
+
 https://api.github.com/users/{username}/orgs
+
 https://api.github.com/users/{username}/repos
 
 Programming languages ​​and libraries used for this project:
@@ -35,6 +37,7 @@ Now, what information can we get by giving someone their GitHub username?
 - And much more information...
 
 Another feature of this website is comparing two people, which is very useful.
+<<<<<<< HEAD
 
 ## GitHub API Rate Limit (Token Support)
 
@@ -59,3 +62,5 @@ python3 main.py
 $env:GITHUB_TOKEN="your_github_personal_access_token"
 python main.py
 ```
+=======
+>>>>>>> 06a5a9bdf5867d42a8aea9f645031350fc7a78f5
