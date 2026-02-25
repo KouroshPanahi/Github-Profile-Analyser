@@ -43,6 +43,47 @@ def fetch_user_orgs(username):
     return response.json()
 
 
+def map_http_error(response):
+    status = response.status_code if response is not None else "unknown"
+    if status == 404:
+        return "User not found."
+    if status == 403:
+        return "Access is restricted or rate limit exceeded."
+    return f"HTTP error: {status}"
+
+
+def fetch_profile_with_orgs(username):
+    data = None
+    orgs = []
+    orgs_error = None
+    error = None
+    response = None
+
+    try:
+        response = requests.get(
+            f"https://api.github.com/users/{username}",
+            timeout=10,
+            headers={"Accept": "application/vnd.github+json"},
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        try:
+            orgs = fetch_user_orgs(username)
+        except requests.exceptions.RequestException as exc:
+            orgs_error = f"Could not fetch organizations: {exc}"
+    except requests.exceptions.Timeout:
+        error = "Request timed out. Please check your internet connection and try again."
+    except requests.exceptions.ConnectionError:
+        error = "Could not connect to the internet. Please try again."
+    except requests.exceptions.HTTPError:
+        error = map_http_error(response)
+    except requests.exceptions.RequestException as exc:
+        error = f"Request failed: {exc}"
+
+    return data, orgs, orgs_error, error
+
+
 def fetch_user_bundle(username):
     data = None
     repos = []
@@ -83,13 +124,7 @@ def fetch_user_bundle(username):
     except requests.exceptions.ConnectionError:
         error = "Could not connect to the internet. Please try again."
     except requests.exceptions.HTTPError:
-        status = response.status_code if response is not None else "unknown"
-        if status == 404:
-            error = "User not found."
-        elif status == 403:
-            error = "Access is restricted or rate limit exceeded."
-        else:
-            error = f"HTTP error: {status}"
+        error = map_http_error(response)
     except requests.exceptions.RequestException as exc:
         error = f"Request failed: {exc}"
 
@@ -238,6 +273,7 @@ def build_report_lines(username, data, repos, orgs):
 
 @app.route("/", methods=["GET", "POST"])
 def home():
+    # Profile tab state
     data = None
     repos = []
     repos_error = None
@@ -246,12 +282,55 @@ def home():
     error = None
     username = ""
 
+    # Compare tab state
+    compare_left_username = ""
+    compare_right_username = ""
+    compare_left_data = None
+    compare_right_data = None
+    compare_left_orgs = []
+    compare_right_orgs = []
+    compare_left_orgs_error = None
+    compare_right_orgs_error = None
+    compare_error = None
+    active_tab = "profile"
+
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        if not username:
-            error = "Please enter a GitHub username."
+        form_type = request.form.get("form_type", "profile").strip()
+
+        if form_type == "compare":
+            active_tab = "compare"
+            compare_left_username = request.form.get("compare_left_username", "").strip()
+            compare_right_username = request.form.get("compare_right_username", "").strip()
+
+            if not compare_left_username or not compare_right_username:
+                compare_error = "Please enter both GitHub usernames to compare."
+            else:
+                (
+                    compare_left_data,
+                    compare_left_orgs,
+                    compare_left_orgs_error,
+                    left_error,
+                ) = fetch_profile_with_orgs(compare_left_username)
+                (
+                    compare_right_data,
+                    compare_right_orgs,
+                    compare_right_orgs_error,
+                    right_error,
+                ) = fetch_profile_with_orgs(compare_right_username)
+
+                errors = []
+                if left_error:
+                    errors.append(f"{compare_left_username}: {left_error}")
+                if right_error:
+                    errors.append(f"{compare_right_username}: {right_error}")
+                if errors:
+                    compare_error = " | ".join(errors)
         else:
-            data, repos, repos_error, orgs, orgs_error, error = fetch_user_bundle(username)
+            username = request.form.get("username", "").strip()
+            if not username:
+                error = "Please enter a GitHub username."
+            else:
+                data, repos, repos_error, orgs, orgs_error, error = fetch_user_bundle(username)
 
     return render_template(
         "index.html",
@@ -263,6 +342,16 @@ def home():
         error=error,
         username=username,
         top_repos_limit=TOP_REPOS_LIMIT,
+        active_tab=active_tab,
+        compare_left_username=compare_left_username,
+        compare_right_username=compare_right_username,
+        compare_left_data=compare_left_data,
+        compare_right_data=compare_right_data,
+        compare_left_orgs=compare_left_orgs,
+        compare_right_orgs=compare_right_orgs,
+        compare_left_orgs_error=compare_left_orgs_error,
+        compare_right_orgs_error=compare_right_orgs_error,
+        compare_error=compare_error,
     )
 
 

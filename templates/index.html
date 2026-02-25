@@ -7,152 +7,320 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div>
+                <p class="topbar-kicker">GitHub Insights</p>
+                <h1>GitHub Profile Analyser</h1>
+            </div>
+            <nav class="main-nav" aria-label="Page sections">
+                <button type="button" class="nav-btn {% if active_tab != 'compare' %}active{% endif %}" data-tab="profile-tab">Profile</button>
+                <button type="button" class="nav-btn {% if active_tab == 'compare' %}active{% endif %}" data-tab="compare-tab">Compare</button>
+            </nav>
+        </div>
+    </header>
+
     <main class="container">
-        <section class="hero">
-            <h1>GitHub Profile Analyser</h1>
-            <p>Type a username to view account stats and profile details in one place.</p>
+        <section id="profile-tab" class="tab-pane {% if active_tab != 'compare' %}is-active{% endif %}">
+            <section class="hero">
+                <h2>Single Profile View</h2>
+                <p>Type a username to view account stats, repositories, organizations, and export PDF report.</p>
+            </section>
+
+            <form method="post" class="search-form">
+                <input type="hidden" name="form_type" value="profile">
+                <input type="text" name="username" placeholder="Enter GitHub username" value="{{ username }}" autocomplete="off">
+                <button type="submit">Search</button>
+            </form>
+
+            {% if error %}
+                <div class="error">{{ error }}</div>
+            {% endif %}
+
+            {% if data %}
+                <section class="card">
+                    <div class="header">
+                        <img class="avatar" src="{{ data.get('avatar_url') }}" alt="{{ data.get('login') }} avatar">
+                        <div class="header-info">
+                            <div class="row"><span class="label">Name:</span> {{ data.get('name') or 'N/A' }}</div>
+                            <div class="row"><span class="label">Username:</span> <span class="mono">{{ data.get('login') }}</span></div>
+                            <div class="row"><span class="label">Profile URL:</span> <a href="{{ data.get('html_url') }}" target="_blank" rel="noopener noreferrer">{{ data.get('html_url') }}</a></div>
+                        </div>
+                    </div>
+
+                    <div class="stats">
+                        <div class="stat-box">
+                            <span>Public Repos</span>
+                            <strong>{{ data.get('public_repos') }}</strong>
+                        </div>
+                        <div class="stat-box">
+                            <span>Followers</span>
+                            <strong>{{ data.get('followers') }}</strong>
+                        </div>
+                        <div class="stat-box">
+                            <span>Following</span>
+                            <strong>{{ data.get('following') }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="rows">
+                        <div class="row"><span class="label">Bio:</span> {{ data.get('bio') or 'N/A' }}</div>
+                        <div class="row"><span class="label">Location:</span> {{ data.get('location') or 'N/A' }}</div>
+                        <div class="row"><span class="label">Company:</span> {{ data.get('company') or 'N/A' }}</div>
+                        <div class="row"><span class="label">Blog/Website:</span> {{ data.get('blog') or 'N/A' }}</div>
+                        <div class="row"><span class="label">Twitter Username:</span> {{ data.get('twitter_username') or 'N/A' }}</div>
+                        <div class="row"><span class="label">Public Gists:</span> {{ data.get('public_gists') }}</div>
+                        <div class="row"><span class="label">Account Type:</span> {{ data.get('type') }}</div>
+                        <div class="row"><span class="label">GitHub ID:</span> <span class="mono">{{ data.get('id') }}</span></div>
+                        <div class="row"><span class="label">Node ID:</span> <span class="mono">{{ data.get('node_id') }}</span></div>
+                        <div class="row"><span class="label">Created At:</span> {{ data.get('created_at') }}</div>
+                        <div class="row"><span class="label">Last Updated:</span> {{ data.get('updated_at') }}</div>
+                        <div class="row"><span class="label">Site Admin:</span> {{ data.get('site_admin') }}</div>
+                        <div class="row"><span class="label">Hireable:</span> {{ data.get('hireable') }}</div>
+                    </div>
+
+                    <details>
+                        <summary>Full GitHub API Response (JSON)</summary>
+                        <pre>{{ data | tojson(indent=2) }}</pre>
+                    </details>
+                </section>
+
+                <section class="card repo-section">
+                    <div class="repo-head">
+                        <h2>Top {{ top_repos_limit }} Repositories</h2>
+                        <p>Showing top {{ top_repos_limit }} first, sorted by stars then forks.</p>
+                    </div>
+
+                    {% if repos_error %}
+                        <div class="warning">{{ repos_error }}</div>
+                    {% elif repos %}
+                        <div class="repo-grid">
+                            {% for repo in repos %}
+                                <article class="repo-card {% if loop.index > top_repos_limit %}repo-hidden{% endif %}">
+                                    <div class="repo-title-row">
+                                        <h3>{{ repo.get('name') }}</h3>
+                                        {% if repo.get('private') %}
+                                            <span class="badge">Private</span>
+                                        {% endif %}
+                                    </div>
+                                    <p class="repo-desc">{{ repo.get('description') or 'No description provided.' }}</p>
+                                    <div class="repo-meta">
+                                        <span>Language: {{ repo.get('language') or 'N/A' }}</span>
+                                        <span>Stars: {{ repo.get('stargazers_count', 0) }}</span>
+                                        <span>Forks: {{ repo.get('forks_count', 0) }}</span>
+                                        <span>Open Issues: {{ repo.get('open_issues_count', 0) }}</span>
+                                        <span>Updated: {{ repo.get('updated_at') or 'N/A' }}</span>
+                                    </div>
+                                    <a href="{{ repo.get('html_url') }}" target="_blank" rel="noopener noreferrer">Open Repository</a>
+                                </article>
+                            {% endfor %}
+                        </div>
+                        {% if repos|length > top_repos_limit %}
+                            <button type="button" class="more-btn" id="toggleReposBtn">More</button>
+                        {% endif %}
+                    {% else %}
+                        <p class="muted">No public repositories found for this user.</p>
+                    {% endif %}
+                </section>
+
+                <section class="card orgs-section">
+                    <div class="repo-head">
+                        <h2>Organizations</h2>
+                        <p>GitHub organizations this user belongs to.</p>
+                    </div>
+
+                    {% if orgs_error %}
+                        <div class="warning">{{ orgs_error }}</div>
+                    {% elif orgs %}
+                        <div class="org-grid">
+                            {% for org in orgs %}
+                                <article class="org-card">
+                                    <img src="{{ org.get('avatar_url') }}" alt="{{ org.get('login') }} avatar">
+                                    <div>
+                                        <h3>{{ org.get('login') }}</h3>
+                                        <a href="https://github.com/{{ org.get('login') }}" target="_blank" rel="noopener noreferrer">View Organization</a>
+                                    </div>
+                                </article>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="muted">No organizations found for this user.</p>
+                    {% endif %}
+                </section>
+
+                <section class="download-wrap">
+                    <a class="download-btn" href="{{ url_for('download_pdf_report', username=data.get('login')) }}">Download PDF Report</a>
+                </section>
+            {% endif %}
         </section>
 
-        <form method="post" class="search-form">
-            <input type="text" name="username" placeholder="Enter GitHub username" value="{{ username }}" autocomplete="off">
-            <button type="submit">Search</button>
-        </form>
-
-        {% if error %}
-            <div class="error">{{ error }}</div>
-        {% endif %}
-
-        {% if data %}
-            <section class="card">
-                <div class="header">
-                    <img class="avatar" src="{{ data.get('avatar_url') }}" alt="{{ data.get('login') }} avatar">
-                    <div class="header-info">
-                        <div class="row"><span class="label">Name:</span> {{ data.get('name') or 'N/A' }}</div>
-                        <div class="row"><span class="label">Username:</span> <span class="mono">{{ data.get('login') }}</span></div>
-                        <div class="row"><span class="label">Profile URL:</span> <a href="{{ data.get('html_url') }}" target="_blank" rel="noopener noreferrer">{{ data.get('html_url') }}</a></div>
-                    </div>
-                </div>
-
-                <div class="stats">
-                    <div class="stat-box">
-                        <span>Public Repos</span>
-                        <strong>{{ data.get('public_repos') }}</strong>
-                    </div>
-                    <div class="stat-box">
-                        <span>Followers</span>
-                        <strong>{{ data.get('followers') }}</strong>
-                    </div>
-                    <div class="stat-box">
-                        <span>Following</span>
-                        <strong>{{ data.get('following') }}</strong>
-                    </div>
-                </div>
-
-                <div class="rows">
-                    <div class="row"><span class="label">Bio:</span> {{ data.get('bio') or 'N/A' }}</div>
-                    <div class="row"><span class="label">Location:</span> {{ data.get('location') or 'N/A' }}</div>
-                    <div class="row"><span class="label">Company:</span> {{ data.get('company') or 'N/A' }}</div>
-                    <div class="row"><span class="label">Blog/Website:</span> {{ data.get('blog') or 'N/A' }}</div>
-                    <div class="row"><span class="label">Twitter Username:</span> {{ data.get('twitter_username') or 'N/A' }}</div>
-                    <div class="row"><span class="label">Public Gists:</span> {{ data.get('public_gists') }}</div>
-                    <div class="row"><span class="label">Account Type:</span> {{ data.get('type') }}</div>
-                    <div class="row"><span class="label">GitHub ID:</span> <span class="mono">{{ data.get('id') }}</span></div>
-                    <div class="row"><span class="label">Node ID:</span> <span class="mono">{{ data.get('node_id') }}</span></div>
-                    <div class="row"><span class="label">Created At:</span> {{ data.get('created_at') }}</div>
-                    <div class="row"><span class="label">Last Updated:</span> {{ data.get('updated_at') }}</div>
-                    <div class="row"><span class="label">Site Admin:</span> {{ data.get('site_admin') }}</div>
-                    <div class="row"><span class="label">Hireable:</span> {{ data.get('hireable') }}</div>
-                </div>
-
-                <details>
-                    <summary>Full GitHub API Response (JSON)</summary>
-                    <pre>{{ data | tojson(indent=2) }}</pre>
-                </details>
+        <section id="compare-tab" class="tab-pane {% if active_tab == 'compare' %}is-active{% endif %}">
+            <section class="hero compare-hero">
+                <h2>Compare Two Profiles</h2>
+                <p>Enter two usernames and view their profile stats side by side. No ranking, no repositories, no raw JSON.</p>
             </section>
 
-            <section class="card repo-section">
-                <div class="repo-head">
-                    <h2>Top {{ top_repos_limit }} Repositories</h2>
-                    <p>Showing top {{ top_repos_limit }} first, sorted by stars then forks.</p>
-                </div>
+            <form method="post" class="search-form compare-form">
+                <input type="hidden" name="form_type" value="compare">
+                <input type="text" name="compare_left_username" placeholder="First username" value="{{ compare_left_username }}" autocomplete="off">
+                <input type="text" name="compare_right_username" placeholder="Second username" value="{{ compare_right_username }}" autocomplete="off">
+                <button type="submit">Compare</button>
+            </form>
 
-                {% if repos_error %}
-                    <div class="warning">{{ repos_error }}</div>
-                {% elif repos %}
-                    <div class="repo-grid">
-                        {% for repo in repos %}
-                            <article class="repo-card {% if loop.index > top_repos_limit %}repo-hidden{% endif %}">
-                                <div class="repo-title-row">
-                                    <h3>{{ repo.get('name') }}</h3>
-                                    {% if repo.get('private') %}
-                                        <span class="badge">Private</span>
-                                    {% endif %}
+            {% if compare_error %}
+                <div class="error">{{ compare_error }}</div>
+            {% endif %}
+
+            {% if compare_left_data and compare_right_data %}
+                <section class="compare-grid">
+                    <article class="card compare-card">
+                        <div class="compare-head">
+                            <img class="avatar" src="{{ compare_left_data.get('avatar_url') }}" alt="{{ compare_left_data.get('login') }} avatar">
+                            <div>
+                                <h3>{{ compare_left_data.get('name') or 'N/A' }}</h3>
+                                <p class="muted mono">{{ compare_left_data.get('login') }}</p>
+                                <a href="{{ compare_left_data.get('html_url') }}" target="_blank" rel="noopener noreferrer">Open Profile</a>
+                            </div>
+                        </div>
+
+                        <div class="stats compact-stats">
+                            <div class="stat-box">
+                                <span>Followers</span>
+                                <strong>{{ compare_left_data.get('followers') }}</strong>
+                            </div>
+                            <div class="stat-box">
+                                <span>Following</span>
+                                <strong>{{ compare_left_data.get('following') }}</strong>
+                            </div>
+                            <div class="stat-box">
+                                <span>Public Repos</span>
+                                <strong>{{ compare_left_data.get('public_repos') }}</strong>
+                            </div>
+                        </div>
+
+                        <div class="rows compare-rows">
+                            <div class="row"><span class="label">Bio:</span> {{ compare_left_data.get('bio') or 'N/A' }}</div>
+                            <div class="row"><span class="label">Company:</span> {{ compare_left_data.get('company') or 'N/A' }}</div>
+                            <div class="row"><span class="label">Location:</span> {{ compare_left_data.get('location') or 'N/A' }}</div>
+                            <div class="row"><span class="label">Blog:</span> {{ compare_left_data.get('blog') or 'N/A' }}</div>
+                            <div class="row"><span class="label">Account Type:</span> {{ compare_left_data.get('type') or 'N/A' }}</div>
+                            <div class="row"><span class="label">Created:</span> {{ compare_left_data.get('created_at') or 'N/A' }}</div>
+                        </div>
+
+                        <section class="compare-orgs">
+                            <div class="repo-head">
+                                <h4>Organizations</h4>
+                                <p>{{ compare_left_orgs|length }} orgs</p>
+                            </div>
+                            {% if compare_left_orgs_error %}
+                                <div class="warning">{{ compare_left_orgs_error }}</div>
+                            {% elif compare_left_orgs %}
+                                <div class="org-grid">
+                                    {% for org in compare_left_orgs %}
+                                        <article class="org-card">
+                                            <img src="{{ org.get('avatar_url') }}" alt="{{ org.get('login') }} avatar">
+                                            <div>
+                                                <h3>{{ org.get('login') }}</h3>
+                                                <a href="https://github.com/{{ org.get('login') }}" target="_blank" rel="noopener noreferrer">View Organization</a>
+                                            </div>
+                                        </article>
+                                    {% endfor %}
                                 </div>
-                                <p class="repo-desc">{{ repo.get('description') or 'No description provided.' }}</p>
-                                <div class="repo-meta">
-                                    <span>Language: {{ repo.get('language') or 'N/A' }}</span>
-                                    <span>Stars: {{ repo.get('stargazers_count', 0) }}</span>
-                                    <span>Forks: {{ repo.get('forks_count', 0) }}</span>
-                                    <span>Open Issues: {{ repo.get('open_issues_count', 0) }}</span>
-                                    <span>Updated: {{ repo.get('updated_at') or 'N/A' }}</span>
+                            {% else %}
+                                <p class="muted">No organizations found.</p>
+                            {% endif %}
+                        </section>
+                    </article>
+
+                    <article class="card compare-card">
+                        <div class="compare-head">
+                            <img class="avatar" src="{{ compare_right_data.get('avatar_url') }}" alt="{{ compare_right_data.get('login') }} avatar">
+                            <div>
+                                <h3>{{ compare_right_data.get('name') or 'N/A' }}</h3>
+                                <p class="muted mono">{{ compare_right_data.get('login') }}</p>
+                                <a href="{{ compare_right_data.get('html_url') }}" target="_blank" rel="noopener noreferrer">Open Profile</a>
+                            </div>
+                        </div>
+
+                        <div class="stats compact-stats">
+                            <div class="stat-box">
+                                <span>Followers</span>
+                                <strong>{{ compare_right_data.get('followers') }}</strong>
+                            </div>
+                            <div class="stat-box">
+                                <span>Following</span>
+                                <strong>{{ compare_right_data.get('following') }}</strong>
+                            </div>
+                            <div class="stat-box">
+                                <span>Public Repos</span>
+                                <strong>{{ compare_right_data.get('public_repos') }}</strong>
+                            </div>
+                        </div>
+
+                        <div class="rows compare-rows">
+                            <div class="row"><span class="label">Bio:</span> {{ compare_right_data.get('bio') or 'N/A' }}</div>
+                            <div class="row"><span class="label">Company:</span> {{ compare_right_data.get('company') or 'N/A' }}</div>
+                            <div class="row"><span class="label">Location:</span> {{ compare_right_data.get('location') or 'N/A' }}</div>
+                            <div class="row"><span class="label">Blog:</span> {{ compare_right_data.get('blog') or 'N/A' }}</div>
+                            <div class="row"><span class="label">Account Type:</span> {{ compare_right_data.get('type') or 'N/A' }}</div>
+                            <div class="row"><span class="label">Created:</span> {{ compare_right_data.get('created_at') or 'N/A' }}</div>
+                        </div>
+
+                        <section class="compare-orgs">
+                            <div class="repo-head">
+                                <h4>Organizations</h4>
+                                <p>{{ compare_right_orgs|length }} orgs</p>
+                            </div>
+                            {% if compare_right_orgs_error %}
+                                <div class="warning">{{ compare_right_orgs_error }}</div>
+                            {% elif compare_right_orgs %}
+                                <div class="org-grid">
+                                    {% for org in compare_right_orgs %}
+                                        <article class="org-card">
+                                            <img src="{{ org.get('avatar_url') }}" alt="{{ org.get('login') }} avatar">
+                                            <div>
+                                                <h3>{{ org.get('login') }}</h3>
+                                                <a href="https://github.com/{{ org.get('login') }}" target="_blank" rel="noopener noreferrer">View Organization</a>
+                                            </div>
+                                        </article>
+                                    {% endfor %}
                                 </div>
-                                <a href="{{ repo.get('html_url') }}" target="_blank" rel="noopener noreferrer">Open Repository</a>
-                            </article>
-                        {% endfor %}
-                    </div>
-                    {% if repos|length > top_repos_limit %}
-                        <button type="button" class="more-btn" id="toggleReposBtn">More</button>
-                    {% endif %}
-                {% else %}
-                    <p class="muted">No public repositories found for this user.</p>
-                {% endif %}
-            </section>
-
-            <section class="card orgs-section">
-                <div class="repo-head">
-                    <h2>Organizations</h2>
-                    <p>GitHub organizations this user belongs to.</p>
-                </div>
-
-                {% if orgs_error %}
-                    <div class="warning">{{ orgs_error }}</div>
-                {% elif orgs %}
-                    <div class="org-grid">
-                        {% for org in orgs %}
-                            <article class="org-card">
-                                <img src="{{ org.get('avatar_url') }}" alt="{{ org.get('login') }} avatar">
-                                <div>
-                                    <h3>{{ org.get('login') }}</h3>
-                                    <a href="https://github.com/{{ org.get('login') }}" target="_blank" rel="noopener noreferrer">View Organization</a>
-                                </div>
-                            </article>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="muted">No organizations found for this user.</p>
-                {% endif %}
-            </section>
-
-            <section class="download-wrap">
-                <a class="download-btn" href="{{ url_for('download_pdf_report', username=data.get('login')) }}">Download PDF Report</a>
-            </section>
-        {% endif %}
+                            {% else %}
+                                <p class="muted">No organizations found.</p>
+                            {% endif %}
+                        </section>
+                    </article>
+                </section>
+            {% endif %}
+        </section>
     </main>
+
     <script>
         (() => {
-            const toggleBtn = document.getElementById("toggleReposBtn");
-            if (!toggleBtn) return;
+            const navButtons = Array.from(document.querySelectorAll(".nav-btn"));
+            const panes = Array.from(document.querySelectorAll(".tab-pane"));
 
-            const hiddenRepoCards = Array.from(document.querySelectorAll(".repo-hidden"));
-            let expanded = false;
-
-            toggleBtn.addEventListener("click", () => {
-                expanded = !expanded;
-                hiddenRepoCards.forEach((card) => {
-                    card.classList.toggle("show-repo", expanded);
+            navButtons.forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const targetId = btn.dataset.tab;
+                    panes.forEach((pane) => pane.classList.toggle("is-active", pane.id === targetId));
+                    navButtons.forEach((item) => item.classList.toggle("active", item === btn));
                 });
-                toggleBtn.textContent = expanded ? "Less" : "More";
             });
+
+            const toggleBtn = document.getElementById("toggleReposBtn");
+            if (toggleBtn) {
+                const hiddenRepoCards = Array.from(document.querySelectorAll(".repo-hidden"));
+                let expanded = false;
+
+                toggleBtn.addEventListener("click", () => {
+                    expanded = !expanded;
+                    hiddenRepoCards.forEach((card) => {
+                        card.classList.toggle("show-repo", expanded);
+                    });
+                    toggleBtn.textContent = expanded ? "Less" : "More";
+                });
+            }
         })();
     </script>
 </body>
