@@ -338,6 +338,28 @@ pre {
     font-size: 1rem;
 }
 
+.download-wrap {
+    margin-top: 6px;
+    margin-bottom: 24px;
+}
+
+.download-btn {
+    display: inline-block;
+    border: 1px solid #0a5db7;
+    background: linear-gradient(180deg, #0d84fa, #0b67cb);
+    color: #ffffff;
+    border-radius: 12px;
+    padding: 11px 16px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 10px 20px rgba(7, 68, 136, 0.2);
+}
+
+.download-btn:hover {
+    text-decoration: none;
+    transform: translateY(-1px);
+}
+
 a {
     color: #0b63c1;
     text-decoration: none;

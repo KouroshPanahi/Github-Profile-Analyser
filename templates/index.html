@@ -132,6 +132,10 @@
                     <p class="muted">No organizations found for this user.</p>
                 {% endif %}
             </section>
+
+            <section class="download-wrap">
+                <a class="download-btn" href="{{ url_for('download_pdf_report', username=data.get('login')) }}">Download PDF Report</a>
+            </section>
         {% endif %}
     </main>
     <script>
