@@ -64,3 +64,6 @@ python main.py
 ```
 =======
 >>>>>>> 06a5a9bdf5867d42a8aea9f645031350fc7a78f5
+
+>[!WARNING] Be Careful
+>Unlike competing projects, this project does not ask you for your GitHub account password and respects your security. You do not need to create an account and log in to it or pay any financial costs to use our program. It is completely free and its security is guaranteed.
