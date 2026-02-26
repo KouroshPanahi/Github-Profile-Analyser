@@ -2,6 +2,7 @@ from io import BytesIO
 import os
 import textwrap
 import zlib
+from datetime import datetime, timezone
 from flask import Flask, render_template, request, send_file
 import requests
 
@@ -98,6 +99,152 @@ def fetch_profile_with_orgs(username):
         error = f"Request failed: {exc}"
 
     return data, orgs, orgs_error, error
+
+
+def parse_iso_datetime(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def format_datetime(value):
+    dt = parse_iso_datetime(value)
+    if not dt:
+        return "N/A"
+    return dt.strftime("%Y-%m-%d")
+
+
+def format_number(value):
+    if value is None:
+        return "N/A"
+    try:
+        return f"{int(value):,}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def build_comparison_report(left_data, right_data, left_orgs, right_orgs, left_orgs_error=None, right_orgs_error=None):
+    now = datetime.now(timezone.utc)
+
+    left_created = parse_iso_datetime(left_data.get("created_at"))
+    right_created = parse_iso_datetime(right_data.get("created_at"))
+
+    left_age_days = (now - left_created).days if left_created else 0
+    right_age_days = (now - right_created).days if right_created else 0
+
+    left_followers = int(left_data.get("followers") or 0)
+    right_followers = int(right_data.get("followers") or 0)
+    left_following = int(left_data.get("following") or 0)
+    right_following = int(right_data.get("following") or 0)
+
+    left_ratio = left_followers / max(left_following, 1)
+    right_ratio = right_followers / max(right_following, 1)
+
+    left_orgs_count = None if left_orgs_error else len(left_orgs)
+    right_orgs_count = None if right_orgs_error else len(right_orgs)
+
+    metrics = [
+        {
+            "label": "Followers",
+            "left": left_followers,
+            "right": right_followers,
+            "left_display": format_number(left_followers),
+            "right_display": format_number(right_followers),
+            "weight": 4,
+            "higher_is_better": True,
+        },
+        {
+            "label": "Public Repositories",
+            "left": int(left_data.get("public_repos") or 0),
+            "right": int(right_data.get("public_repos") or 0),
+            "left_display": format_number(left_data.get("public_repos") or 0),
+            "right_display": format_number(right_data.get("public_repos") or 0),
+            "weight": 3,
+            "higher_is_better": True,
+        },
+        {
+            "label": "Public Gists",
+            "left": int(left_data.get("public_gists") or 0),
+            "right": int(right_data.get("public_gists") or 0),
+            "left_display": format_number(left_data.get("public_gists") or 0),
+            "right_display": format_number(right_data.get("public_gists") or 0),
+            "weight": 1,
+            "higher_is_better": True,
+        },
+        {
+            "label": "Organizations",
+            "left": left_orgs_count,
+            "right": right_orgs_count,
+            "left_display": format_number(left_orgs_count),
+            "right_display": format_number(right_orgs_count),
+            "weight": 2,
+            "higher_is_better": True,
+            "comparable": left_orgs_count is not None and right_orgs_count is not None,
+        },
+        {
+            "label": "Account Age (days)",
+            "left": left_age_days,
+            "right": right_age_days,
+            "left_display": format_number(left_age_days),
+            "right_display": format_number(right_age_days),
+            "weight": 2,
+            "higher_is_better": True,
+        },
+        {
+            "label": "Follower/Following Ratio",
+            "left": left_ratio,
+            "right": right_ratio,
+            "left_display": f"{left_ratio:.2f}",
+            "right_display": f"{right_ratio:.2f}",
+            "weight": 2,
+            "higher_is_better": True,
+        },
+    ]
+
+    left_score = 0
+    right_score = 0
+    for metric in metrics:
+        if not metric.get("comparable", True):
+            metric["winner"] = "tie"
+            continue
+        left_val = metric["left"]
+        right_val = metric["right"]
+        if left_val == right_val:
+            metric["winner"] = "tie"
+            continue
+
+        left_better = left_val > right_val if metric["higher_is_better"] else left_val < right_val
+        if left_better:
+            metric["winner"] = "left"
+            left_score += metric["weight"]
+        else:
+            metric["winner"] = "right"
+            right_score += metric["weight"]
+
+    if left_score > right_score:
+        verdict = "left"
+        verdict_text = "Left profile is stronger based on the selected metrics."
+    elif right_score > left_score:
+        verdict = "right"
+        verdict_text = "Right profile is stronger based on the selected metrics."
+    else:
+        verdict = "tie"
+        verdict_text = "Both profiles are very close based on the selected metrics."
+
+    return {
+        "metrics": metrics,
+        "left_score": left_score,
+        "right_score": right_score,
+        "verdict": verdict,
+        "verdict_text": verdict_text,
+        "left_created_display": format_datetime(left_data.get("created_at")),
+        "right_created_display": format_datetime(right_data.get("created_at")),
+        "left_updated_display": format_datetime(left_data.get("updated_at")),
+        "right_updated_display": format_datetime(right_data.get("updated_at")),
+    }
 
 
 def fetch_user_bundle(username):
@@ -369,6 +516,7 @@ def home():
     compare_left_orgs_error = None
     compare_right_orgs_error = None
     compare_error = None
+    compare_report = None
     active_tab = "profile"
 
     if request.method == "POST":
@@ -402,6 +550,15 @@ def home():
                     errors.append(f"{compare_right_username}: {right_error}")
                 if errors:
                     compare_error = " | ".join(errors)
+                else:
+                    compare_report = build_comparison_report(
+                        compare_left_data,
+                        compare_right_data,
+                        compare_left_orgs,
+                        compare_right_orgs,
+                        compare_left_orgs_error,
+                        compare_right_orgs_error,
+                    )
         else:
             username = request.form.get("username", "").strip()
             if not username:
@@ -429,6 +586,7 @@ def home():
         compare_left_orgs_error=compare_left_orgs_error,
         compare_right_orgs_error=compare_right_orgs_error,
         compare_error=compare_error,
+        compare_report=compare_report,
     )
 
 

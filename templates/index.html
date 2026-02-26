@@ -170,126 +170,121 @@
             {% if compare_error %}
                 <div class="error">{{ compare_error }}</div>
             {% endif %}
+            {% if compare_left_orgs_error or compare_right_orgs_error %}
+                <div class="warning">
+                    Organization data is partial:
+                    {% if compare_left_orgs_error %} {{ compare_left_data.get('login') if compare_left_data else compare_left_username }} ({{ compare_left_orgs_error }}){% endif %}
+                    {% if compare_right_orgs_error %} {{ compare_right_data.get('login') if compare_right_data else compare_right_username }} ({{ compare_right_orgs_error }}){% endif %}
+                </div>
+            {% endif %}
 
             {% if compare_left_data and compare_right_data %}
-                <section class="compare-grid">
-                    <article class="card compare-card">
-                        <div class="compare-head">
-                            <img class="avatar" src="{{ compare_left_data.get('avatar_url') }}" alt="{{ compare_left_data.get('login') }} avatar">
+                <section class="card compare-summary-card">
+                    <div class="compare-headline">
+                        <div class="compare-mini-profile">
+                            <img class="avatar compare-mini-avatar" src="{{ compare_left_data.get('avatar_url') }}" alt="{{ compare_left_data.get('login') }} avatar">
                             <div>
                                 <h3>{{ compare_left_data.get('name') or 'N/A' }}</h3>
                                 <p class="muted mono">{{ compare_left_data.get('login') }}</p>
                                 <a href="{{ compare_left_data.get('html_url') }}" target="_blank" rel="noopener noreferrer">Open Profile</a>
                             </div>
                         </div>
-
-                        <div class="stats compact-stats">
-                            <div class="stat-box">
-                                <span>Followers</span>
-                                <strong>{{ compare_left_data.get('followers') }}</strong>
-                            </div>
-                            <div class="stat-box">
-                                <span>Following</span>
-                                <strong>{{ compare_left_data.get('following') }}</strong>
-                            </div>
-                            <div class="stat-box">
-                                <span>Public Repos</span>
-                                <strong>{{ compare_left_data.get('public_repos') }}</strong>
-                            </div>
-                        </div>
-
-                        <div class="rows compare-rows">
-                            <div class="row"><span class="label">Bio:</span> {{ compare_left_data.get('bio') or 'N/A' }}</div>
-                            <div class="row"><span class="label">Company:</span> {{ compare_left_data.get('company') or 'N/A' }}</div>
-                            <div class="row"><span class="label">Location:</span> {{ compare_left_data.get('location') or 'N/A' }}</div>
-                            <div class="row"><span class="label">Blog:</span> {{ compare_left_data.get('blog') or 'N/A' }}</div>
-                            <div class="row"><span class="label">Account Type:</span> {{ compare_left_data.get('type') or 'N/A' }}</div>
-                            <div class="row"><span class="label">Created:</span> {{ compare_left_data.get('created_at') or 'N/A' }}</div>
-                        </div>
-
-                        <section class="compare-orgs">
-                            <div class="repo-head">
-                                <h4>Organizations</h4>
-                                <p>{{ compare_left_orgs|length }} orgs</p>
-                            </div>
-                            {% if compare_left_orgs_error %}
-                                <div class="warning">{{ compare_left_orgs_error }}</div>
-                            {% elif compare_left_orgs %}
-                                <div class="org-grid">
-                                    {% for org in compare_left_orgs %}
-                                        <article class="org-card">
-                                            <img src="{{ org.get('avatar_url') }}" alt="{{ org.get('login') }} avatar">
-                                            <div>
-                                                <h3>{{ org.get('login') }}</h3>
-                                                <a href="https://github.com/{{ org.get('login') }}" target="_blank" rel="noopener noreferrer">View Organization</a>
-                                            </div>
-                                        </article>
-                                    {% endfor %}
-                                </div>
-                            {% else %}
-                                <p class="muted">No organizations found.</p>
+                        <div class="compare-score {% if compare_report and compare_report.get('verdict') == 'left' %}winner-left{% elif compare_report and compare_report.get('verdict') == 'right' %}winner-right{% endif %}">
+                            <p class="muted">Comparison Result</p>
+                            <h3>
+                                {% if compare_report and compare_report.get('verdict') == 'left' %}
+                                    {{ compare_left_data.get('login') }} is better
+                                {% elif compare_report and compare_report.get('verdict') == 'right' %}
+                                    {{ compare_right_data.get('login') }} is better
+                                {% else %}
+                                    Very close match
+                                {% endif %}
+                            </h3>
+                            {% if compare_report %}
+                                <p class="muted">{{ compare_report.get('verdict_text') }}</p>
+                                <p class="score-line">
+                                    Score: {{ compare_left_data.get('login') }} {{ compare_report.get('left_score') }} - {{ compare_report.get('right_score') }} {{ compare_right_data.get('login') }}
+                                </p>
                             {% endif %}
-                        </section>
-                    </article>
-
-                    <article class="card compare-card">
-                        <div class="compare-head">
-                            <img class="avatar" src="{{ compare_right_data.get('avatar_url') }}" alt="{{ compare_right_data.get('login') }} avatar">
+                        </div>
+                        <div class="compare-mini-profile compare-mini-profile-right">
+                            <img class="avatar compare-mini-avatar" src="{{ compare_right_data.get('avatar_url') }}" alt="{{ compare_right_data.get('login') }} avatar">
                             <div>
                                 <h3>{{ compare_right_data.get('name') or 'N/A' }}</h3>
                                 <p class="muted mono">{{ compare_right_data.get('login') }}</p>
                                 <a href="{{ compare_right_data.get('html_url') }}" target="_blank" rel="noopener noreferrer">Open Profile</a>
                             </div>
                         </div>
+                    </div>
+                </section>
 
-                        <div class="stats compact-stats">
-                            <div class="stat-box">
-                                <span>Followers</span>
-                                <strong>{{ compare_right_data.get('followers') }}</strong>
-                            </div>
-                            <div class="stat-box">
-                                <span>Following</span>
-                                <strong>{{ compare_right_data.get('following') }}</strong>
-                            </div>
-                            <div class="stat-box">
-                                <span>Public Repos</span>
-                                <strong>{{ compare_right_data.get('public_repos') }}</strong>
-                            </div>
-                        </div>
-
-                        <div class="rows compare-rows">
-                            <div class="row"><span class="label">Bio:</span> {{ compare_right_data.get('bio') or 'N/A' }}</div>
-                            <div class="row"><span class="label">Company:</span> {{ compare_right_data.get('company') or 'N/A' }}</div>
-                            <div class="row"><span class="label">Location:</span> {{ compare_right_data.get('location') or 'N/A' }}</div>
-                            <div class="row"><span class="label">Blog:</span> {{ compare_right_data.get('blog') or 'N/A' }}</div>
-                            <div class="row"><span class="label">Account Type:</span> {{ compare_right_data.get('type') or 'N/A' }}</div>
-                            <div class="row"><span class="label">Created:</span> {{ compare_right_data.get('created_at') or 'N/A' }}</div>
-                        </div>
-
-                        <section class="compare-orgs">
-                            <div class="repo-head">
-                                <h4>Organizations</h4>
-                                <p>{{ compare_right_orgs|length }} orgs</p>
-                            </div>
-                            {% if compare_right_orgs_error %}
-                                <div class="warning">{{ compare_right_orgs_error }}</div>
-                            {% elif compare_right_orgs %}
-                                <div class="org-grid">
-                                    {% for org in compare_right_orgs %}
-                                        <article class="org-card">
-                                            <img src="{{ org.get('avatar_url') }}" alt="{{ org.get('login') }} avatar">
-                                            <div>
-                                                <h3>{{ org.get('login') }}</h3>
-                                                <a href="https://github.com/{{ org.get('login') }}" target="_blank" rel="noopener noreferrer">View Organization</a>
-                                            </div>
-                                        </article>
+                <section class="card compare-table-card">
+                    <div class="repo-head">
+                        <h4>Side-by-Side Comparison</h4>
+                        <p>Each row highlights which profile is stronger in that metric.</p>
+                    </div>
+                    <div class="compare-table-wrap">
+                        <table class="compare-table">
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th>{{ compare_left_data.get('login') }}</th>
+                                    <th>{{ compare_right_data.get('login') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if compare_report %}
+                                    {% for metric in compare_report.get('metrics', []) %}
+                                        <tr>
+                                            <td class="metric-name">{{ metric.get('label') }}</td>
+                                            <td class="{% if metric.get('winner') == 'left' %}metric-winner{% endif %}">{{ metric.get('left_display') }}</td>
+                                            <td class="{% if metric.get('winner') == 'right' %}metric-winner{% endif %}">{{ metric.get('right_display') }}</td>
+                                        </tr>
                                     {% endfor %}
-                                </div>
-                            {% else %}
-                                <p class="muted">No organizations found.</p>
-                            {% endif %}
-                        </section>
-                    </article>
+                                {% endif %}
+                                <tr>
+                                    <td class="metric-name">Following</td>
+                                    <td>{{ compare_left_data.get('following') }}</td>
+                                    <td>{{ compare_right_data.get('following') }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="metric-name">Company</td>
+                                    <td>{{ compare_left_data.get('company') or 'N/A' }}</td>
+                                    <td>{{ compare_right_data.get('company') or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="metric-name">Location</td>
+                                    <td>{{ compare_left_data.get('location') or 'N/A' }}</td>
+                                    <td>{{ compare_right_data.get('location') or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="metric-name">Blog</td>
+                                    <td>{{ compare_left_data.get('blog') or 'N/A' }}</td>
+                                    <td>{{ compare_right_data.get('blog') or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="metric-name">Account Type</td>
+                                    <td>{{ compare_left_data.get('type') or 'N/A' }}</td>
+                                    <td>{{ compare_right_data.get('type') or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="metric-name">Created At</td>
+                                    <td>{% if compare_report %}{{ compare_report.get('left_created_display') }}{% else %}{{ compare_left_data.get('created_at') or 'N/A' }}{% endif %}</td>
+                                    <td>{% if compare_report %}{{ compare_report.get('right_created_display') }}{% else %}{{ compare_right_data.get('created_at') or 'N/A' }}{% endif %}</td>
+                                </tr>
+                                <tr>
+                                    <td class="metric-name">Last Updated</td>
+                                    <td>{% if compare_report %}{{ compare_report.get('left_updated_display') }}{% else %}{{ compare_left_data.get('updated_at') or 'N/A' }}{% endif %}</td>
+                                    <td>{% if compare_report %}{{ compare_report.get('right_updated_display') }}{% else %}{{ compare_right_data.get('updated_at') or 'N/A' }}{% endif %}</td>
+                                </tr>
+                                <tr>
+                                    <td class="metric-name">Bio</td>
+                                    <td>{{ compare_left_data.get('bio') or 'N/A' }}</td>
+                                    <td>{{ compare_right_data.get('bio') or 'N/A' }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </section>
             {% endif %}
         </section>
