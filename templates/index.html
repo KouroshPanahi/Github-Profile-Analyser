@@ -13,10 +13,21 @@
                 <p class="topbar-kicker">GitHub Insights</p>
                 <h1>GitHub Profile Analyser</h1>
             </div>
-            <nav class="main-nav" aria-label="Page sections">
-                <button type="button" class="nav-btn {% if active_tab != 'compare' %}active{% endif %}" data-tab="profile-tab">Profile</button>
-                <button type="button" class="nav-btn {% if active_tab == 'compare' %}active{% endif %}" data-tab="compare-tab">Compare</button>
-            </nav>
+            <div class="topbar-actions">
+                <nav class="main-nav" aria-label="Page sections">
+                    <button type="button" class="nav-btn {% if active_tab != 'compare' %}active{% endif %}" data-tab="profile-tab">Profile</button>
+                    <button type="button" class="nav-btn {% if active_tab == 'compare' %}active{% endif %}" data-tab="compare-tab">Compare</button>
+                </nav>
+                <button type="button" class="theme-toggle" id="themeToggleBtn" aria-label="Toggle dark mode">
+                    <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 4a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V5a1 1 0 0 1 1-1zm0 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm8-6a1 1 0 0 1-1 1h-1a1 1 0 1 1 0-2h1a1 1 0 0 1 1 1zM7 12a1 1 0 0 1-1 1H5a1 1 0 1 1 0-2h1a1 1 0 0 1 1 1zm9.66 5.24a1 1 0 0 1 1.41 1.42l-.7.7a1 1 0 0 1-1.42-1.41l.71-.71zM8.05 8.05a1 1 0 0 1 1.41-1.41l.71.71A1 1 0 1 1 8.76 8.76l-.71-.71zm9.32-1.41a1 1 0 0 1 0 1.41l-.71.71a1 1 0 1 1-1.41-1.41l.7-.71a1 1 0 0 1 1.42 0zM9.46 16.65a1 1 0 0 1 0 1.41l-.71.71a1 1 0 0 1-1.41-1.42l.7-.7a1 1 0 0 1 1.42 0z"></path>
+                    </svg>
+                    <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M14.5 2.5a1 1 0 0 1 .6 1.8A8 8 0 1 0 19.7 14a1 1 0 0 1 1.8.7A10 10 0 1 1 13.8 2.8a1 1 0 0 1 .7-.3z"></path>
+                    </svg>
+                    <span id="themeToggleLabel">Dark</span>
+                </button>
+            </div>
         </div>
     </header>
 
@@ -29,7 +40,10 @@
 
             <form method="post" class="search-form">
                 <input type="hidden" name="form_type" value="profile">
-                <input type="text" name="username" placeholder="Enter GitHub username" value="{{ username }}" autocomplete="off">
+                <div class="suggest-wrap">
+                    <input type="text" name="username" id="profileUsernameInput" placeholder="Enter GitHub username" value="{{ username }}" autocomplete="off">
+                    <div class="suggest-box" id="profileSuggestBox"></div>
+                </div>
                 <button type="submit">Search</button>
             </form>
 
@@ -178,8 +192,14 @@
 
             <form method="post" class="search-form compare-form">
                 <input type="hidden" name="form_type" value="compare">
-                <input type="text" name="compare_left_username" placeholder="First username" value="{{ compare_left_username }}" autocomplete="off">
-                <input type="text" name="compare_right_username" placeholder="Second username" value="{{ compare_right_username }}" autocomplete="off">
+                <div class="suggest-wrap">
+                    <input type="text" name="compare_left_username" id="compareLeftInput" placeholder="First username" value="{{ compare_left_username }}" autocomplete="off">
+                    <div class="suggest-box" id="compareLeftSuggestBox"></div>
+                </div>
+                <div class="suggest-wrap">
+                    <input type="text" name="compare_right_username" id="compareRightInput" placeholder="Second username" value="{{ compare_right_username }}" autocomplete="off">
+                    <div class="suggest-box" id="compareRightSuggestBox"></div>
+                </div>
                 <button type="submit">Compare</button>
             </form>
 
@@ -335,6 +355,8 @@
         (() => {
             const navButtons = Array.from(document.querySelectorAll(".nav-btn"));
             const panes = Array.from(document.querySelectorAll(".tab-pane"));
+            const themeToggleBtn = document.getElementById("themeToggleBtn");
+            const themeToggleLabel = document.getElementById("themeToggleLabel");
 
             navButtons.forEach((btn) => {
                 btn.addEventListener("click", () => {
@@ -357,6 +379,88 @@
                     toggleBtn.textContent = expanded ? "Less" : "More";
                 });
             }
+
+            const applyTheme = (theme) => {
+                document.body.dataset.theme = theme;
+                if (themeToggleLabel) {
+                    themeToggleLabel.textContent = theme === "dark" ? "Light" : "Dark";
+                }
+            };
+
+            const storedTheme = localStorage.getItem("site-theme");
+            const initialTheme = storedTheme === "dark" || storedTheme === "light" ? storedTheme : "light";
+            applyTheme(initialTheme);
+
+            if (themeToggleBtn) {
+                themeToggleBtn.addEventListener("click", () => {
+                    const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark";
+                    applyTheme(nextTheme);
+                    localStorage.setItem("site-theme", nextTheme);
+                });
+            }
+
+            const debounce = (fn, wait) => {
+                let timer = null;
+                return (...args) => {
+                    clearTimeout(timer);
+                    timer = setTimeout(() => fn(...args), wait);
+                };
+            };
+
+            const setupSuggestions = (inputId, boxId) => {
+                const input = document.getElementById(inputId);
+                const box = document.getElementById(boxId);
+                if (!input || !box) {
+                    return;
+                }
+
+                const renderItems = (items) => {
+                    if (!items.length) {
+                        box.innerHTML = "";
+                        box.classList.remove("is-open");
+                        return;
+                    }
+                    box.innerHTML = items
+                        .map(
+                            (item) =>
+                                `<button type="button" class="suggest-item" data-login="${item.login}"><span class="mono">${item.login}</span><span class="suggest-hint">popular</span></button>`
+                        )
+                        .join("");
+                    box.classList.add("is-open");
+                };
+
+                const loadSuggestions = debounce(async () => {
+                    const q = input.value.trim();
+                    try {
+                        const response = await fetch(`/api/user-suggestions?q=${encodeURIComponent(q)}&limit=5`);
+                        if (!response.ok) {
+                            throw new Error("suggestions request failed");
+                        }
+                        const payload = await response.json();
+                        renderItems(payload.items || []);
+                    } catch (_) {
+                        renderItems([]);
+                    }
+                }, 220);
+
+                input.addEventListener("input", loadSuggestions);
+                input.addEventListener("focus", loadSuggestions);
+                input.addEventListener("blur", () => {
+                    setTimeout(() => box.classList.remove("is-open"), 120);
+                });
+                box.addEventListener("mousedown", (event) => {
+                    const target = event.target.closest(".suggest-item");
+                    if (!target) {
+                        return;
+                    }
+                    input.value = target.dataset.login || "";
+                    box.classList.remove("is-open");
+                });
+            };
+
+            setupSuggestions("profileUsernameInput", "profileSuggestBox");
+            setupSuggestions("compareLeftInput", "compareLeftSuggestBox");
+            setupSuggestions("compareRightInput", "compareRightSuggestBox");
         })();
     </script>
 </body>

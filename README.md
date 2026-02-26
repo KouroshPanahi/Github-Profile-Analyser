@@ -78,3 +78,7 @@ Account Age (days): 2 points
 Followers/Following Ratio: 2 points
 Badge Points : 3 points
 Badge Count : 1 point
+
+The application has caching capabilities, which saves a large number of searches for an account at a time to both reduce the number of API references and increase the application speed.
+
+The application brings the desired users to the user with advanced search.

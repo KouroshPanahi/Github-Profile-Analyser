@@ -5,7 +5,7 @@ import textwrap
 import time
 import zlib
 from datetime import datetime, timezone
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, jsonify
 import requests
 
 app = Flask(__name__)
@@ -17,6 +17,17 @@ CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "900"))
 
 _cache_store = {}
 _cache_lock = threading.Lock()
+FEATURED_USERNAMES = [
+    "torvalds",
+    "gaearon",
+    "yyx990803",
+    "sindresorhus",
+    "addyosmani",
+    "tj",
+    "mojombo",
+    "defunkt",
+    "openai",
+]
 
 
 def github_headers():
@@ -64,6 +75,50 @@ def fetch_user_profile(username):
     data = response.json()
     cache_set(cache_key, data)
     return data
+
+
+def fetch_user_suggestions(query, limit=5):
+    query = (query or "").strip()
+    safe_limit = max(1, min(int(limit or 5), 5))
+    cache_key = ("user_suggestions", query.lower(), safe_limit)
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return list(cached)
+
+    if not query:
+        featured = [{"login": username, "html_url": f"https://github.com/{username}"} for username in FEATURED_USERNAMES[:safe_limit]]
+        cache_set(cache_key, featured, ttl_seconds=3600)
+        return featured
+
+    try:
+        response = github_get(
+            "/search/users",
+            params={
+                "q": f"{query} in:login",
+                "sort": "followers",
+                "order": "desc",
+                "per_page": safe_limit,
+            },
+        )
+        response.raise_for_status()
+        items = response.json().get("items", [])
+        suggestions = [{"login": item.get("login"), "html_url": item.get("html_url")} for item in items if item.get("login")]
+        if not suggestions:
+            lowered = query.lower()
+            suggestions = [
+                {"login": username, "html_url": f"https://github.com/{username}"}
+                for username in FEATURED_USERNAMES
+                if lowered in username.lower()
+            ][:safe_limit]
+        cache_set(cache_key, suggestions, ttl_seconds=1200)
+        return suggestions
+    except requests.exceptions.RequestException:
+        lowered = query.lower()
+        return [
+            {"login": username, "html_url": f"https://github.com/{username}"}
+            for username in FEATURED_USERNAMES
+            if lowered in username.lower()
+        ][:safe_limit]
 
 
 def fetch_all_repositories(username):
@@ -747,6 +802,18 @@ def download_pdf_report(username):
         as_attachment=True,
         download_name=filename,
     )
+
+
+@app.route("/api/user-suggestions")
+def user_suggestions():
+    query = request.args.get("q", "")
+    limit = request.args.get("limit", "5")
+    try:
+        limit_value = int(limit)
+    except (TypeError, ValueError):
+        limit_value = 5
+    items = fetch_user_suggestions(query, limit_value)
+    return jsonify({"items": items})
 
 
 if __name__ == "__main__":
