@@ -63,6 +63,22 @@
                         </div>
                     </div>
 
+                    <div class="badges-wrap">
+                        <div class="repo-head">
+                            <h4>Badges</h4>
+                            <p>Badge Points: {{ profile_badge_points }}</p>
+                        </div>
+                        {% if profile_badges %}
+                            <div class="badge-list">
+                                {% for badge in profile_badges %}
+                                    <span class="profile-badge">{{ badge.get('name') }} (+{{ badge.get('points') }})</span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="muted">No badge unlocked yet.</p>
+                        {% endif %}
+                    </div>
+
                     <div class="rows">
                         <div class="row"><span class="label">Bio:</span> {{ data.get('bio') or 'N/A' }}</div>
                         <div class="row"><span class="label">Location:</span> {{ data.get('location') or 'N/A' }}</div>
@@ -203,7 +219,7 @@
                             {% if compare_report %}
                                 <p class="muted">{{ compare_report.get('verdict_text') }}</p>
                                 <p class="score-line">
-                                    Score: {{ compare_left_data.get('login') }} {{ compare_report.get('left_score') }} - {{ compare_report.get('right_score') }} {{ compare_right_data.get('login') }}
+                                    Score: {{ compare_report.get('left_score') }} - {{ compare_report.get('right_score') }}
                                 </p>
                             {% endif %}
                         </div>
@@ -242,6 +258,31 @@
                                         </tr>
                                     {% endfor %}
                                 {% endif %}
+                                <tr>
+                                    <td class="metric-name">Badges</td>
+                                    <td>
+                                        {% if compare_left_badges %}
+                                            <div class="mini-badge-list">
+                                                {% for badge in compare_left_badges %}
+                                                    <span class="profile-badge small-badge">{{ badge.get('name') }}</span>
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            No badges
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if compare_right_badges %}
+                                            <div class="mini-badge-list">
+                                                {% for badge in compare_right_badges %}
+                                                    <span class="profile-badge small-badge">{{ badge.get('name') }}</span>
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            No badges
+                                        {% endif %}
+                                    </td>
+                                </tr>
                                 <tr>
                                     <td class="metric-name">Following</td>
                                     <td>{{ compare_left_data.get('following') }}</td>

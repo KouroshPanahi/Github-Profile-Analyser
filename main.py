@@ -1,6 +1,8 @@
 from io import BytesIO
 import os
+import threading
 import textwrap
+import time
 import zlib
 from datetime import datetime, timezone
 from flask import Flask, render_template, request, send_file
@@ -11,6 +13,10 @@ TOP_REPOS_LIMIT = 5
 PER_PAGE = 100
 GITHUB_API_BASE = "https://api.github.com"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
+CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "900"))
+
+_cache_store = {}
+_cache_lock = threading.Lock()
 
 
 def github_headers():
@@ -29,7 +35,43 @@ def github_get(path, params=None):
     )
 
 
+def cache_get(cache_key):
+    now = time.time()
+    with _cache_lock:
+        item = _cache_store.get(cache_key)
+        if not item:
+            return None
+        expires_at, value = item
+        if expires_at < now:
+            _cache_store.pop(cache_key, None)
+            return None
+        return value
+
+
+def cache_set(cache_key, value, ttl_seconds=CACHE_TTL_SECONDS):
+    with _cache_lock:
+        _cache_store[cache_key] = (time.time() + ttl_seconds, value)
+
+
+def fetch_user_profile(username):
+    cache_key = ("user_profile", (username or "").lower())
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    response = github_get(f"/users/{username}")
+    response.raise_for_status()
+    data = response.json()
+    cache_set(cache_key, data)
+    return data
+
+
 def fetch_all_repositories(username):
+    cache_key = ("user_repos", (username or "").lower())
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return list(cached)
+
     repos = []
     page = 1
 
@@ -50,13 +92,21 @@ def fetch_all_repositories(username):
 
         page += 1
 
+    cache_set(cache_key, repos)
     return repos
 
 
 def fetch_user_orgs(username):
+    cache_key = ("user_orgs", (username or "").lower())
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return list(cached)
+
     response = github_get(f"/users/{username}/orgs")
     response.raise_for_status()
-    return response.json()
+    data = response.json()
+    cache_set(cache_key, data)
+    return data
 
 
 def map_http_error(response):
@@ -78,12 +128,8 @@ def fetch_profile_with_orgs(username):
     orgs = []
     orgs_error = None
     error = None
-    response = None
-
     try:
-        response = github_get(f"/users/{username}")
-        response.raise_for_status()
-        data = response.json()
+        data = fetch_user_profile(username)
 
         try:
             orgs = fetch_user_orgs(username)
@@ -93,8 +139,8 @@ def fetch_profile_with_orgs(username):
         error = "Request timed out. Please check your internet connection and try again."
     except requests.exceptions.ConnectionError:
         error = "Could not connect to the internet. Please try again."
-    except requests.exceptions.HTTPError:
-        error = map_http_error(response)
+    except requests.exceptions.HTTPError as exc:
+        error = map_http_error(exc.response)
     except requests.exceptions.RequestException as exc:
         error = f"Request failed: {exc}"
 
@@ -126,7 +172,58 @@ def format_number(value):
         return str(value)
 
 
-def build_comparison_report(left_data, right_data, left_orgs, right_orgs, left_orgs_error=None, right_orgs_error=None):
+def build_user_badges(data, orgs):
+    badges = []
+    followers = int(data.get("followers") or 0)
+    public_repos = int(data.get("public_repos") or 0)
+    public_gists = int(data.get("public_gists") or 0)
+    following = int(data.get("following") or 0)
+    ratio = followers / max(following, 1)
+
+    created_dt = parse_iso_datetime(data.get("created_at"))
+    account_age_days = 0
+    if created_dt:
+        account_age_days = (datetime.now(timezone.utc) - created_dt).days
+
+    if data.get("site_admin"):
+        badges.append({"name": "GitHub Staff", "points": 3})
+    if followers >= 1000:
+        badges.append({"name": "Popular", "points": 3})
+    elif followers >= 200:
+        badges.append({"name": "Rising Popularity", "points": 2})
+    if public_repos >= 100:
+        badges.append({"name": "Repo Master", "points": 3})
+    elif public_repos >= 30:
+        badges.append({"name": "Active Builder", "points": 2})
+    if len(orgs) >= 3:
+        badges.append({"name": "Community Member", "points": 2})
+    elif len(orgs) >= 1:
+        badges.append({"name": "Organization Member", "points": 1})
+    if public_gists >= 10:
+        badges.append({"name": "Knowledge Sharer", "points": 1})
+    if ratio >= 2 and followers >= 100:
+        badges.append({"name": "Influential", "points": 2})
+    if account_age_days >= 365 * 5:
+        badges.append({"name": "Veteran", "points": 2})
+    elif account_age_days >= 365 * 2:
+        badges.append({"name": "Established", "points": 1})
+
+    points = sum(badge["points"] for badge in badges)
+    return badges, points
+
+
+def build_comparison_report(
+    left_data,
+    right_data,
+    left_orgs,
+    right_orgs,
+    left_orgs_error=None,
+    right_orgs_error=None,
+    left_badge_points=0,
+    right_badge_points=0,
+    left_badge_count=0,
+    right_badge_count=0,
+):
     now = datetime.now(timezone.utc)
 
     left_created = parse_iso_datetime(left_data.get("created_at"))
@@ -202,6 +299,24 @@ def build_comparison_report(left_data, right_data, left_orgs, right_orgs, left_o
             "weight": 2,
             "higher_is_better": True,
         },
+        {
+            "label": "Badge Points",
+            "left": left_badge_points,
+            "right": right_badge_points,
+            "left_display": format_number(left_badge_points),
+            "right_display": format_number(right_badge_points),
+            "weight": 3,
+            "higher_is_better": True,
+        },
+        {
+            "label": "Badge Count",
+            "left": left_badge_count,
+            "right": right_badge_count,
+            "left_display": format_number(left_badge_count),
+            "right_display": format_number(right_badge_count),
+            "weight": 1,
+            "higher_is_better": True,
+        },
     ]
 
     left_score = 0
@@ -254,12 +369,8 @@ def fetch_user_bundle(username):
     orgs = []
     orgs_error = None
     error = None
-    response = None
-
     try:
-        response = github_get(f"/users/{username}")
-        response.raise_for_status()
-        data = response.json()
+        data = fetch_user_profile(username)
 
         try:
             repos = fetch_all_repositories(username)
@@ -282,8 +393,8 @@ def fetch_user_bundle(username):
         error = "Request timed out. Please check your internet connection and try again."
     except requests.exceptions.ConnectionError:
         error = "Could not connect to the internet. Please try again."
-    except requests.exceptions.HTTPError:
-        error = map_http_error(response)
+    except requests.exceptions.HTTPError as exc:
+        error = map_http_error(exc.response)
     except requests.exceptions.RequestException as exc:
         error = f"Request failed: {exc}"
 
@@ -505,6 +616,11 @@ def home():
     orgs_error = None
     error = None
     username = ""
+    profile_badges = []
+    profile_badge_points = 0
+    language_chart_data = []
+    activity_chart_data = []
+    activity_chart_error = None
 
     # Compare tab state
     compare_left_username = ""
@@ -517,6 +633,10 @@ def home():
     compare_right_orgs_error = None
     compare_error = None
     compare_report = None
+    compare_left_badges = []
+    compare_right_badges = []
+    compare_left_badge_points = 0
+    compare_right_badge_points = 0
     active_tab = "profile"
 
     if request.method == "POST":
@@ -551,6 +671,8 @@ def home():
                 if errors:
                     compare_error = " | ".join(errors)
                 else:
+                    compare_left_badges, compare_left_badge_points = build_user_badges(compare_left_data, compare_left_orgs)
+                    compare_right_badges, compare_right_badge_points = build_user_badges(compare_right_data, compare_right_orgs)
                     compare_report = build_comparison_report(
                         compare_left_data,
                         compare_right_data,
@@ -558,6 +680,10 @@ def home():
                         compare_right_orgs,
                         compare_left_orgs_error,
                         compare_right_orgs_error,
+                        compare_left_badge_points,
+                        compare_right_badge_points,
+                        len(compare_left_badges),
+                        len(compare_right_badges),
                     )
         else:
             username = request.form.get("username", "").strip()
@@ -565,6 +691,8 @@ def home():
                 error = "Please enter a GitHub username."
             else:
                 data, repos, repos_error, orgs, orgs_error, error = fetch_user_bundle(username)
+                if data and not error:
+                    profile_badges, profile_badge_points = build_user_badges(data, orgs)
 
     return render_template(
         "index.html",
@@ -575,6 +703,11 @@ def home():
         orgs_error=orgs_error,
         error=error,
         username=username,
+        profile_badges=profile_badges,
+        profile_badge_points=profile_badge_points,
+        language_chart_data=language_chart_data,
+        activity_chart_data=activity_chart_data,
+        activity_chart_error=activity_chart_error,
         top_repos_limit=TOP_REPOS_LIMIT,
         active_tab=active_tab,
         compare_left_username=compare_left_username,
@@ -587,6 +720,10 @@ def home():
         compare_right_orgs_error=compare_right_orgs_error,
         compare_error=compare_error,
         compare_report=compare_report,
+        compare_left_badges=compare_left_badges,
+        compare_right_badges=compare_right_badges,
+        compare_left_badge_points=compare_left_badge_points,
+        compare_right_badge_points=compare_right_badge_points,
     )
 
 

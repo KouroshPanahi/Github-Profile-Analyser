@@ -229,6 +229,34 @@ body {
     font-size: 1.28rem;
 }
 
+.badges-wrap {
+    margin-top: 12px;
+}
+
+.badge-list,
+.mini-badge-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.profile-badge {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #b6d2ef;
+    background: #edf6ff;
+    color: #184a7f;
+    padding: 5px 9px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.small-badge {
+    font-size: 0.72rem;
+    padding: 4px 8px;
+}
+
 .rows {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
