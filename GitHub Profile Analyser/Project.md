@@ -39,3 +39,10 @@ Another feature of this website is comparing two people, which is very useful.
 >[!WARNING] Be Careful
 >Unlike competing projects, this project does not ask you for your GitHub account password and respects your security. You do not need to create an account and log in to it or pay any financial costs to use our program. It is completely free and its security is guaranteed.
 
+The new feature of the program is the smart comparison between two GitHub users, so that it compares important information and gives them a score. It has 14 points, and below we see what each section has a score:
+
+Followers: 4 points
+Public Repository: 3 points
+Organizations: 2 points
+Account Age (days): 2 points
+Followers/Following Ratio: 2 points
