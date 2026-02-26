@@ -42,14 +42,23 @@
 ---
 ## ✨ Features
 ✅ **Complete Profile Analysis** - Get detailed information about any GitHub user including name, bio, followers, following, public repos, and more
+
 ✅ **Smart Profile Comparison** - Compare two GitHub profiles side-by-side with 18 different metrics and automatic scoring
+
 ✅ **PDF Report Generation** - Download comprehensive PDF reports of any profile analysis
+
 ✅ **Repository Analysis** - View all public repositories sorted by stars and forks
+
 ✅ **Organization Memberships** - See which organizations the user belongs to
+
 ✅ **Caching System** - Optimized API calls with built-in caching for faster performance and reduced rate limit usage
+
 ✅ **Advanced Search** - Find users with advanced filtering options
+
 ✅ **No Login Required** - 100% free and secure - we never ask for your GitHub password
+
 ✅ **GitHub API Rate Limit Support** - Use your own token for up to 5000 requests/hour
+
 
 ## 🎯 Why GitHub Profile Analyzer?
  Unlike competing projects, this tool respects your security - no account creation, no password requests, no hidden costs. Just pure functionality.
@@ -177,7 +186,7 @@ Contributions are welcome! Here's how you can help:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](https://license/) file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
